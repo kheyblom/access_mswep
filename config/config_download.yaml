@@ -1,0 +1,21 @@
+directories:
+  download: /glade/derecho/scratch/kheyblom/data/mswep/
+  logs: ./logs
+log_file: mswep_download.log
+n_processes: 4
+version: V3.16
+products:
+  - Past/Daily
+year_range: null
+year_subdirectories: true
+rclone:
+  remote: drive
+  root: MSWEP_V316_test
+  shared_with_me: true
+  transfers: 4
+  checkers: 8
+  tpslimit: 3
+  bwlimit: null
+  retries: 5
+  low_level_retries: 20
+  extra_flags: []

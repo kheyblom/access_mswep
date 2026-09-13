@@ -1,0 +1,21 @@
+directories:
+  download: /glade/derecho/scratch/kheyblom/data/mswep_tiny/
+  logs: ./logs
+log_file: mswep_download_tiny.log
+n_processes: 2
+version: V2.8.0
+products:
+  - Past/Daily
+year_range: [1979, 1979]
+year_subdirectories: true
+rclone:
+  remote: drive
+  root: MSWEP_V280
+  shared_with_me: true
+  transfers: 4
+  checkers: 8
+  tpslimit: 3
+  bwlimit: null
+  retries: 5
+  low_level_retries: 20
+  extra_flags: []

@@ -1,0 +1,26 @@
+#!/bin/bash
+# Fallback only. The normal way to run this is ./run_download.sh on a login
+# node; a download is network bound and a login node has outbound internet.
+# Use this job instead if a login node run keeps getting killed, or if the
+# transfer needs to be left running for longer than a session should be.
+#
+#   qsub -A "$PBS_ACCOUNT" job_download.pbs
+#
+# Casper, not Derecho: Derecho compute nodes have no outbound internet, so
+# rclone cannot reach Google from one.
+
+#PBS -N mswep_download
+#PBS -q casper
+#PBS -l select=1:ncpus=4:mem=16GB
+#PBS -l walltime=12:00:00
+#PBS -j oe
+#PBS -o logs/mswep_download.pbs.log
+
+set -euo pipefail
+
+cd /glade/work/kheyblom/data_access/access_mswep
+
+# the job inherits no login profile, so point rclone at the token explicitly
+export RCLONE_CONFIG="${HOME}/.config/rclone/rclone.conf"
+
+uv run python mswep_download.py --config config/config_download.yaml
