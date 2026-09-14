@@ -1,0 +1,23 @@
+directories:
+  download: /glade/derecho/scratch/kheyblom/data/mswep/
+  logs: ./logs
+log_file: mswep_download_v316_nrt.log
+# the record spans three years, so it splits into three shards however many
+# workers are asked for; 3 * tpslimit 3 stays under Drive's ~10 request/s
+n_processes: 3
+version: V3.16
+products:
+  - NRT/Daily
+year_range: null
+year_subdirectories: true
+rclone:
+  remote: drive
+  root: MSWEP_V316_test
+  shared_with_me: true
+  transfers: 4
+  checkers: 8
+  tpslimit: 3
+  bwlimit: null
+  retries: 5
+  low_level_retries: 20
+  extra_flags: []

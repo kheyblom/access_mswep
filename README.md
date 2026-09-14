@@ -9,6 +9,7 @@ mswep_download.py            the downloader
 mswep_search.ipynb           scratch notebook for inspecting the Drive folder
 config/config_download.yaml  what to download and where to put it
 config/config_download_nrt.yaml   the V2.8 near real time daily record
+config/config_download_v316_nrt.yaml  the V3.16 near real time daily record
 config/config_download_tiny.yaml  same, limited to 1979, for a smoke test
 utils/                       config loading, logging, rclone wrappers
 run_download.sh              start the download on a login node
@@ -96,6 +97,9 @@ uv run python mswep_download.py --config config/config_download.yaml --dry-run
 
 # V2.8 near real time daily, 2020-11-27 onwards
 ./run_download.sh config/config_download_nrt.yaml
+
+# V3.16 near real time daily, 2024-10-30 onwards
+./run_download.sh config/config_download_v316_nrt.yaml
 ```
 
 `run_download.sh` starts the download under `setsid`, in a session of its own, so
@@ -135,15 +139,18 @@ and rclone cannot reach Google from one.
 
 ## Periods and resolutions
 
-A product is a period and a temporal resolution, and V2.8 offers `Past`, `Past_nogauge`
-and `NRT` crossed with `3hourly`, `Daily` and `Monthly`. `Past` ends where `NRT` begins:
-the near real time record starts at 2020-11-27 and is extended daily, so the two
-together cover 1979 to now. A file is named for the period it covers -- `YYYYDOY.nc`
+A product is a period and a temporal resolution, crossing `Past`, `Past_nogauge` and
+`NRT` with `3hourly`, `Daily` and `Monthly`, plus `Hourly` in V3.16. Where the two
+periods meet differs by version, and it is worth checking rather than assuming: in V2.8
+`Past` ends where `NRT` begins, at 2020-11-27, while in V3.16 they overlap by eight
+months, `NRT` opening at 2024-10-30 against a `Past` record that runs to 2025-06-29.
+Across the overlap the same day exists in both trees and the files differ, `Past` being
+the gauge corrected release and `NRT` the low latency one, so prefer `Past` there. A file is named for the period it covers -- `YYYYDOY.nc`
 daily, `YYYYDOY.HH.nc` three hourly, `YYYYMM.nc` monthly -- and every form is understood
 when the year is read off for filtering and for the year directories.
 
-Downloading a resolution is a matter of listing it in `products`; note that the full NRT
-three hourly record is around 450 GB against the daily record's 13 GB.
+Downloading a resolution is a matter of listing it in `products`; note that V2.8's full
+NRT three hourly record is around 450 GB against the daily record's 13 GB.
 
 ## How it works
 
@@ -182,9 +189,9 @@ request ceiling. If the logs fill with `rateLimitExceeded`, lower `tpslimit` rat
 `year_subdirectories` is `true`, so the tree is split a year at a time:
 
 ```
-<download>/v_2_8_0/raw/past/daily/1979/1979032.nc
-<download>/v_2_8_0/raw/past/daily/1980/1980001.nc
-<download>/v_2_8_0/raw/nrt/daily/2020/2020332.nc
+<download>/v_2_8/raw/past/daily/1979/1979032.nc
+<download>/v_2_8/raw/past/daily/1980/1980001.nc
+<download>/v_2_8/raw/nrt/daily/2020/2020332.nc
 ```
 
 Setting it to `false` puts every daily file in one directory instead, which for the
