@@ -3,7 +3,7 @@ directories:
   logs: ./logs
 log_file: mswep_download_tiny.log
 n_processes: 2
-version: V2.8.0
+version: V2.8
 products:
   - Past/Daily
 year_range: [1979, 1979]

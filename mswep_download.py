@@ -6,7 +6,7 @@ product is a period and a temporal resolution such as ``Past/Daily`` or
 daily, ``YYYYDOY.HH.nc`` three hourly, ``YYYYMM.nc`` monthly. The local tree is
 rebuilt as
 ``<download>/<version>/raw/<product>/<file>.nc`` with the version written as
-``v_2_8_0`` rather than ``V2.8.0`` and the product lowercased, optionally with a
+``v_2_8`` rather than ``V2.8`` and the product lowercased, optionally with a
 year directory inserted when ``year_subdirectories`` is set.
 
 Which files are fetched is driven by the config: the list of ``products`` and
@@ -58,8 +58,8 @@ FILENAME_RE = re.compile(
     r'(?:\.(?P<hour>\d{2}))?'   # hour, three hourly only
     r'\.nc$'
 )
-# 'V2.8.0' -> '2.8.0', 'V3.16' -> '3.16'; MSWEP versions carry two or three
-# parts depending on the release, so the count is not fixed
+# 'V2.8' -> '2.8', 'V3.16' -> '3.16'; a release can carry more parts than
+# these two do, so the count is not fixed
 VERSION_RE = re.compile(r'^[Vv](?P<number>\d+(?:\.\d+)*)$')
 # processName keeps the workers apart in the shared console stream
 LOG_FORMAT = '%(asctime)s [%(levelname)s] %(processName)s %(name)s: %(message)s'
@@ -89,12 +89,12 @@ def format_version(version):
     """Rewrite an MSWEP version for use as a directory name.
 
     Args:
-        version (str): Version as written in the config, e.g. 'V2.8.0' or 'V3.16'.
+        version (str): Version as written in the config, e.g. 'V2.8' or 'V3.16'.
 
     Returns:
         str: The version lowercased with the parts underscore separated, so
-            'V2.8.0' -> 'v_2_8_0' and 'V3.16' -> 'v_3_16'. However many parts
-            the version has are kept, since MSWEP numbers releases both ways.
+            'V2.8' -> 'v_2_8' and 'V3.16' -> 'v_3_16'. However many parts
+            the version has are kept, since the count varies by release.
 
     Raises:
         ValueError: If the version is not a 'V' followed by dot separated numbers.
@@ -102,7 +102,7 @@ def format_version(version):
     match = VERSION_RE.match(version)
     if match is None:
         raise ValueError(
-            f"cannot parse version {version!r}, expected e.g. 'V2.8.0' or 'V3.16'"
+            f"cannot parse version {version!r}, expected e.g. 'V2.8' or 'V3.16'"
         )
     return 'v_' + '_'.join(match.group('number').split('.'))
 
@@ -126,7 +126,7 @@ def download_root(settings):
         settings (dict): The loaded configuration.
 
     Returns:
-        str: e.g. '<download>/v_2_8_0/raw'.
+        str: e.g. '<download>/v_2_8/raw'.
     """
     return os.path.join(
         settings['directories']['download'], format_version(settings['version']), 'raw'

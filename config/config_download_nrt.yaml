@@ -5,7 +5,7 @@ log_file: mswep_download_nrt.log
 # NRT daily splits into one shard per year, seven of them; 5 * tpslimit 2 keeps
 # the run at Drive's ~10 request/s ceiling
 n_processes: 5
-version: V2.8.0
+version: V2.8
 products:
   - NRT/Daily
 year_range: null
