@@ -8,6 +8,7 @@ config, a thin `utils/` layer, per-worker log files, and a run that is safe to r
 mswep_download.py            the downloader
 mswep_search.ipynb           scratch notebook for inspecting the Drive folder
 config/config_download.yaml  what to download and where to put it
+config/config_download_nrt.yaml   the V2.8 near real time daily record
 config/config_download_tiny.yaml  same, limited to 1979, for a smoke test
 utils/                       config loading, logging, rclone wrappers
 run_download.sh              start the download on a login node
@@ -92,6 +93,9 @@ uv run python mswep_download.py --config config/config_download.yaml --dry-run
 
 # the full record
 ./run_download.sh
+
+# V2.8 near real time daily, 2020-11-27 onwards
+./run_download.sh config/config_download_nrt.yaml
 ```
 
 `run_download.sh` starts the download under `setsid`, in a session of its own, so
@@ -129,11 +133,31 @@ set `rclone.bwlimit` in the config (for example `bwlimit: 20M`) rather than cutt
 killed. It targets Casper, because Derecho compute nodes have no outbound internet
 and rclone cannot reach Google from one.
 
+## Periods and resolutions
+
+A product is a period and a temporal resolution, and V2.8 offers `Past`, `Past_nogauge`
+and `NRT` crossed with `3hourly`, `Daily` and `Monthly`. `Past` ends where `NRT` begins:
+the near real time record starts at 2020-11-27 and is extended daily, so the two
+together cover 1979 to now. A file is named for the period it covers -- `YYYYDOY.nc`
+daily, `YYYYDOY.HH.nc` three hourly, `YYYYMM.nc` monthly -- and every form is understood
+when the year is read off for filtering and for the year directories.
+
+Downloading a resolution is a matter of listing it in `products`; note that the full NRT
+three hourly record is around 450 GB against the daily record's 13 GB.
+
 ## How it works
 
 `lsjson` lists the remote once and yields every file with its size, so the total volume
 is known before anything transfers. Files are filtered by `year_range`, and their local
 paths built as `<download>/<version>/raw/<product>/<file>.nc`.
+
+Drive identifies a file by id rather than by name, so one folder can hold two files
+called the same thing, and the NRT folders do: a day gets re-released and the revision
+is uploaded alongside the original instead of over it. rclone copies one of them and
+ignores the other, so the listing is collapsed the same way, keeping the most recently
+modified. Without that the name lands in a shard twice and is verified against whichever
+copy was listed last, which makes a complete download report a size mismatch. Each one
+dropped is logged, since the choice decides what ends up on disk.
 
 MSWEP daily is tens of thousands of small files. One rclone process per file would mean
 tens of thousands of process spawns and enough Google Drive API traffic to trip the
@@ -160,6 +184,7 @@ request ceiling. If the logs fill with `rateLimitExceeded`, lower `tpslimit` rat
 ```
 <download>/v_2_8_0/raw/past/daily/1979/1979032.nc
 <download>/v_2_8_0/raw/past/daily/1980/1980001.nc
+<download>/v_2_8_0/raw/nrt/daily/2020/2020332.nc
 ```
 
 Setting it to `false` puts every daily file in one directory instead, which for the

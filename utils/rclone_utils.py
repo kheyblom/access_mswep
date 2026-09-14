@@ -73,7 +73,11 @@ def lsjson(remote, flags):
         flags (list): Common flags from build_flags.
 
     Returns:
-        list: One dict per file, with at least 'Path', 'Name' and 'Size'.
+        list: One dict per file, with at least 'Path', 'Name', 'Size' and
+            'ModTime'. Drive allows two files to share a name in one folder,
+            so a name can appear more than once; the modification time is what
+            tells the copies apart, and it costs nothing extra to ask for here
+            since Drive returns it with the rest of the listing metadata.
 
     Raises:
         RuntimeError: If rclone exits non-zero.
@@ -85,7 +89,6 @@ def lsjson(remote, flags):
         # one listing call per directory instead of one per file; the
         # difference is thousands of api calls on a directory this size
         '--fast-list',
-        '--no-modtime',
         remote,
         *flags,
     ]

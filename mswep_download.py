@@ -1,8 +1,10 @@
 """Download raw MSWEP netCDF files from a shared Google Drive folder with rclone.
 
 The Drive folder lays the data out as ``<root>/<product>/<file>.nc``, where a
-product is a period and a temporal resolution such as ``Past/Daily``, and each
-daily file is named ``YYYYDOY.nc``. The local tree is rebuilt as
+product is a period and a temporal resolution such as ``Past/Daily`` or
+``NRT/3hourly``, and a file is named for the period it covers: ``YYYYDOY.nc``
+daily, ``YYYYDOY.HH.nc`` three hourly, ``YYYYMM.nc`` monthly. The local tree is
+rebuilt as
 ``<download>/<version>/raw/<product>/<file>.nc`` with the version written as
 ``v_2_8_0`` rather than ``V2.8.0`` and the product lowercased, optionally with a
 year directory inserted when ``year_subdirectories`` is set.
@@ -45,8 +47,17 @@ from utils.rclone_utils import (
     run_copy,
 )
 
-# '1979032.nc' -> year 1979, day of year 032
-FILENAME_RE = re.compile(r'^(?P<year>\d{4})(?P<doy>\d{3})\.nc$')
+# MSWEP names a file for the period it covers, so what follows the year
+# depends on the temporal resolution: '1979032.nc' is day of year 032 of 1979,
+# '2020330.18.nc' is the 18Z three hour step of that day, and '202012.nc' is
+# December 2020. Only the leading year is needed here, but the rest is matched
+# so an unexpected name is still reported rather than silently misread.
+FILENAME_RE = re.compile(
+    r'^(?P<year>\d{4})'
+    r'(?P<period>\d{2,3})'      # month for monthly, day of year otherwise
+    r'(?:\.(?P<hour>\d{2}))?'   # hour, three hourly only
+    r'\.nc$'
+)
 # 'V2.8.0' -> '2.8.0', 'V3.16' -> '3.16'; MSWEP versions carry two or three
 # parts depending on the release, so the count is not fixed
 VERSION_RE = re.compile(r'^[Vv](?P<number>\d+(?:\.\d+)*)$')
@@ -64,7 +75,8 @@ def parse_year(filename):
     """Return the year encoded in an MSWEP filename, or None if unparseable.
 
     Args:
-        filename (str): Basename of a remote file, e.g. '1979032.nc'.
+        filename (str): Basename of a remote file, e.g. '1979032.nc' (daily),
+            '2020330.18.nc' (three hourly) or '202012.nc' (monthly).
 
     Returns:
         int | None: The four digit year, or None if the filename does not match.
@@ -210,6 +222,43 @@ def in_year_range(year, year_range):
     return first <= year <= last
 
 
+def newest_per_name(entries, product):
+    """Collapse repeated remote names, keeping the most recently modified.
+
+    Google Drive identifies a file by id, not by path, so one folder can hold
+    two files with the same name -- the NRT folders carry a few, where a day was
+    re-released and the revision uploaded alongside the original rather than
+    over it. rclone copies one of them and ignores the rest, so the listing has
+    to be collapsed the same way: left alone, the same name would be written
+    into the shard twice and verified against whichever copy happened to be
+    listed last, which is how a complete download reports a size mismatch.
+
+    Args:
+        entries (list): Raw lsjson entries, each with 'Path', 'Size' and
+            'ModTime'.
+        product (str): The product being listed, for the log message.
+
+    Returns:
+        list: One entry per name, the newest by 'ModTime'.
+    """
+    newest = {}
+    for entry in entries:
+        previous = newest.get(entry['Path'])
+        if previous is None:
+            newest[entry['Path']] = entry
+            continue
+        # keep the newer of the two and say which was dropped, since the choice
+        # decides what ends up on disk
+        older, newer = sorted((previous, entry), key=lambda item: item.get('ModTime', ''))
+        newest[entry['Path']] = newer
+        LOG.warning(
+            f'{product}/{entry["Path"]} exists twice on the remote; keeping the '
+            f'copy modified {newer.get("ModTime")} ({newer["Size"]} bytes), '
+            f'ignoring the one from {older.get("ModTime")} ({older["Size"]} bytes)'
+        )
+    return list(newest.values())
+
+
 def list_files(settings, product):
     """List the files to download for one product.
 
@@ -218,16 +267,16 @@ def list_files(settings, product):
         product (str): A product path such as 'Past/Daily'.
 
     Returns:
-        list: (name, local_path, size) triples, filtered by year. The name is
-            relative to the product directory, which is what rclone's
-            --files-from expects.
+        list: (name, local_path, size) triples, filtered by year and with
+            duplicate remote names collapsed. The name is relative to the
+            product directory, which is what rclone's --files-from expects.
     """
     rclone_settings = settings['rclone']
     source = remote_path(rclone_settings, product)
     entries = lsjson(source, build_flags(rclone_settings))
 
     files = []
-    for entry in entries:
+    for entry in newest_per_name(entries, product):
         # Path is relative to source; for a flat daily directory it is the name
         name = entry['Path']
         if not name.endswith('.nc'):
